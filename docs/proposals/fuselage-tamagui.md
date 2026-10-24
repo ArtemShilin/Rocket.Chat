@@ -243,7 +243,7 @@ css-in-js is external. Its closure costs consumers another 6.2 kB, plus a render
 
 **Flattening use-sites isn't enough either.** A flattened element no longer calls the runtime, but its `styled()` definition stays in the bundle. 34 definitions are already orphans and still run `createComponent` at load. The 63 exported frames only flatten in an app that runs the compiler.
 
-**The approach: compile the definition, not the use-site.** A Fuselage build plugin turns each `styled()` definition into a recipe:
+**The approach: compile the definition, not the use-site.** Tamagui stays the authoring tool and the compiler: frames are still written with `styled()`, and Tamagui's own build code produces their CSS and class names. Only its runtime leaves the browser. The build turns each `styled()` definition into a recipe, preferably by extending `@tamagui/static`, as the existing patches do, rather than with a separate plugin:
 
 - At build time, Tamagui itself produces the atomic CSS for every value the definition can take: base, each variant value, each state. `prevalStyled` already evaluates the options, and the `@tamagui/static` patches already produce per-variant class tables.
 - At runtime, a component of about 1 to 2 kB maps props to those classes, merges `className`, honors `render` and forwards `ref`. It has no state hooks and inserts no CSS.
