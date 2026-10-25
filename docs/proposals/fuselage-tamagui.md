@@ -73,7 +73,7 @@ The reasons, in order of weight:
 - **Runtime cost:** without the compiler in the app, frames cost more to mount than `Box` with `rcx-*` classes. The performance case depends on phase 2.
 - **Patches:** six patches on Tamagui 3.0.18:
   - React 19 ref cleanups;
-  - `forceStyle` and `onLayout` leaking to the DOM;
+  - `forceStyle` and `onLayout` leaking to the DOM (Fuselage no longer passes `forceStyle`);
   - `stopPropagation()` after every `onClick`;
   - frames without a provider;
   - two in the compiler.
@@ -253,7 +253,7 @@ css-in-js is external. Its closure costs consumers another 6.2 kB, plus a render
 ### Phases
 
 0. **Lock and measure.** A CI ratchet on the web bundle (count of `@tamagui/*` modules, gzip size). The computed-style A/B over every story already exists (`perf/story-ab.mjs`, `perf/story-computed.mjs`), and so does the mount and update bench.
-1. **Prototype on three definitions:** `MessageName` (plain), `ButtonGroup` (variants) and `ButtonFrame` (states, `forceStyle`, `render`).
+1. **Prototype on three definitions:** `MessageName` (plain), `ButtonGroup` (variants) and `ButtonFrame` (states, `render`).
    - It must reach computed-style parity.
    - It must measure JS and CSS size. The open question is how much CSS grows when every variant value is emitted ahead of time instead of inserted on demand.
    - This phase decides whether the plan goes on.
@@ -263,7 +263,6 @@ css-in-js is external. Its closure costs consumers another 6.2 kB, plus a render
    |---|---|---|
    | dynamic style values | 17 frames | a finite variant, or a CSS custom property through `style` |
    | `context:` / `createStyledContext` | 6 / 4 | a React context read by the recipe, or a `data-*` attribute on the parent with a descendant selector |
-   | `forceStyle` | 9 | each state's CSS also emitted under its state class (`:hover, .is-hovered`) |
    | `group` | 2 | a parent rule in the `fuselage` layer, as Message and Item already do |
    | `animation:` | 5 | CSS `@keyframes` |
    | computed `render` | 35 | the recipe takes a tag or an element |
@@ -361,7 +360,6 @@ The goal is no SCSS, and as little CSS as Tamagui allows. Each component's resid
 - **Media**: the config holds the Fuselage breakpoints (`sm`, `md`, `lg`, `xl`, `xxl`, `xxxl`, `min-width` in `em`, as the SCSS `on-breakpoint` mixin used). Write them as clauses, for example `padding: { default: …, md: … }`.
 - **Parent state → child style**: put `group="<name>"` on the parent frame, then use `'group-hover/<name>'` or `'group-focus-within/<name>'` clauses on child frames. They emit real CSS.
   - They are not CSS only: each child with a group clause subscribes to the group, and the parent attaches mouse and press handlers that re-render those children. Specs that click outside `act()` then fail the console error check.
-  - `forceStyle` on the group parent does not reach its children's group clauses.
   - `group` works in the `styled()` config; `container` only works as a JSX prop.
   - **Not for parts rendered once per row.** The first subscriber makes the parent render again on mount, and each subscriber costs about 28 µs per mount (`perf/micro`). Message and Item reveal their parts with plain rules in the `fuselage` layer instead (`.rcx-message:hover .rcx-message-header__time`, `.rcx-item:focus-within .rcx-item__actions--reveal-hover`), with hover inside `@media (hover: hover)` as Tamagui does. That made mounting 26% faster for message rows and 43% faster for item rows with actions.
   - Declaring a group with no subscriber costs nothing.
@@ -374,10 +372,8 @@ The goal is no SCSS, and as little CSS as Tamagui allows. Each component's resid
 - **`:has()`**: let the child register in a parent context (for example "has an addon"), then style through a variant.
 - **Attribute selectors** (`[aria-selected]`, `[tabindex]`): the component already knows the prop, so map it to a variant.
 - **Pseudo-elements**: decorative `::before`/`::after` become real `aria-hidden` elements, keeping the class name of the element that held them. Snapshots change; pixels must not.
-- **Forced state classes** (`hover`/`is-hovered`, `active`/`is-active`, `focus`/`is-focused`, `focus focus-visible`): pass `forceStyle={getForcedState(className)}` to the frame.
-  - Only do this once *all* of the frame's state styles are clauses. Under `forceStyle`, Tamagui renders the whole frame with inline styles, which beat any SCSS still styling that state.
-  - Forced `disabled`/`is-disabled` maps to the component's disabled variant; `isForcedDisabled(className)` reads it.
-  - `!important` values survive in atomic CSS but are dropped from the inline styles `forceStyle` renders.
+- **Forced state classes** (`hover`/`is-hovered`, `active`/`is-active`, `focus`/`is-focused`, `focus focus-visible`) no longer pin a component's state: only the Storybook state showcases used them, and `forceStyle` rendered the whole frame inline, which kept it from compiling. Those stories now show the rest state.
+  - Forced `disabled`/`is-disabled` still maps to the component's disabled variant; `isForcedDisabled(className)` reads it.
 - **Vendor-prefixed font smoothing** comes from one `:where(.is_View, .is_Text)` rule in `index.css`. Drop the per-component copies.
 - **Typing gaps:** `WebkitLineClamp`, `WebkitBoxOrient` and `display: '-webkit-box'` emit CSS but are typed `never` on `Text`; cast them in one helper. `animationName`, `transition`, `wordBreak` and `textIndent` emit real CSS.
 - **Fonts:** a frame that replaces `font: inherit` also needs `fontVariantNumeric: 'inherit'`, or a `<button>` loses `tabular-nums` and text shifts by a fraction of a pixel.
@@ -408,7 +404,7 @@ The entry is `src/index.css`:
 - Tamagui's base `min-height: 0` lets frames shrink where `Box` didn't. Restate `minHeight: 'auto'`.
 - Tamagui 3.0.18 is patched (`.yarn/patches`):
   - React 19 ref cleanups;
-  - `forceStyle` no longer leaks to the DOM;
+  - `forceStyle` no longer leaks to the DOM (dead since Fuselage stopped passing it);
   - the container `onLayout` measurer no longer leaks to the DOM;
   - a frame with no `ThemeProvider` above acts as its own root instead of throwing.
 - Run `yarn exec eslint --fix <paths>`, never `yarn eslint --fix <paths>`: the package script is `eslint .` and fixes the whole package.
