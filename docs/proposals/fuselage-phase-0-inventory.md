@@ -8,6 +8,82 @@ The backlog for phase 0 of [the migration plan](fuselage-tamagui.md#plan). Every
 
 Public surface: 284 components exported from `components/**/index.ts`.
 
+## Status and priorities (2026-10-25)
+
+### The target the fixes serve
+
+These come from [the migration plan](fuselage-tamagui.md):
+
+- **Frames stay static.** A `styled()` frame holds only static styles, variants and CSS states (`:hover`, `:focus`, custom properties). It has no logic, no context, no values computed at render time and no forced state. Behavior lives in plain React components that compose frames.
+- **No user-perceptible cost.** Against `develop`:
+  - JS at most +10 kB gzip;
+  - mount and update of the long lists (messages, sidebar, members) at most +10%;
+  - CSS may change as long as total bytes don't regress.
+- **Nothing irreversible for React Native.** `styled()` stays the source, and values go through the typed token helpers.
+
+A fix belongs to phase 0 when it moves `develop` toward that target without Tamagui.
+
+### Done
+
+| ID | What | Where |
+|---|---|---|
+| 4.1 | Fuselage components no longer accept `Box` styling props, a free `is`, `rcx-*` props or a css function as `className` | #43100 (merged); the scanner allows 0 |
+| — | Use-sites migrated off styling props on components | #42974 (merged) |
+| — | The spacing scale is declared and spacing resolves to px | #43021, #43047 (merged) |
+| 1.8 (part) | The stray backtick in `MessageStatusPrivateIndicator`; the `undefined` class in `MessageReactionCounter` | The first two commits of the pilot, ready to extract into their own PR |
+
+### Corrections to the findings below
+
+**6.1, forced-state classes.** `states.scss` matches the bare words `hover`, `active`, `focus` and `disabled` as well as their `is-*` forms. On `develop`:
+
+- the `is-*` forms are used outside Fuselage only by `AssetSettingInput` (`is-disabled` on a borrowed `rcx-button`; the pilot already replaces it with a real `Button`);
+- `CloseChatModal` passes `active`;
+- inside Fuselage, 4 stories (the state showcases) and their 4 SCSS rules use them;
+- no app selector and no e2e test targets them.
+
+Dropping them is therefore cheap once those two sites change. It also removes the reason the pilot needs `forceStyle` in 9 frames, the largest size cost of the pilot's build-time lowering.
+
+### New findings since the inventory
+
+| ID | Component(s) | What | Fix on `develop` |
+|---|---|---|---|
+| N.1 | `Message`, `Item` | Parts revealed on row hover or focus (toolbar, timestamp color, hover actions). In SCSS this is already a parent selector; the pilot first used Tamagui `group` clauses, and each subscriber re-renders the row on mount. | Keep it a parent rule. Nothing to change on `develop`, but no frame may reintroduce `group` for it. |
+| N.2 | `Item` | Besides 5.1, `Item` finds out after mount whether it has two lines and a link, which costs a second render per row. | Let an `Item` declare `multiline` and `interactive` (a pilot commit that also works on `develop`). |
+| N.3 | style token helpers | `borderRadius`, `fontScale`, colors and the rest take any value and return `undefined` for a typo, so the style silently disappears. | Type them by the `fuselage-tokens` lists (a pilot commit that also works on `develop`). |
+| N.4 | `OwnerDocument` | Reads `window` when the module loads, which breaks evaluating Fuselage at build time. | Read it lazily (a pilot commit that also works on `develop`). |
+| N.5 | `Box` | 1,800+ use-sites keep the css-in-js runtime in every render. | Named layout primitives (`Stack` and a few more) for screens, per `docs/frontend/layout.md`; the `scan-raw-layout` ratchet keeps the count going down. |
+
+### Priorities
+
+**0. Guardrails, first.**
+- A bench and size baseline measured on `develop`, so the budgets above have something to compare against.
+- Extract the pilot commits that already work on `develop`: 1.8 (part), N.2, N.3, N.4 and 5.1 (part: register titles only for menu items).
+
+**1. Unblock static frames.** Without these, Tamagui needs its runtime.
+- 6.1: forced-state classes out (Storybook pseudo-states addon; fix `CloseChatModal` and `AssetSettingInput` first).
+- 4.3: runtime `css`/`keyframes` become static CSS with custom properties.
+- 6.7: `patchChildren` becomes child selectors.
+- 6.2–6.5: state through DOM classes becomes `:focus-visible`, `:has(:invalid)`, `aria-*` or BEM modifiers.
+- 4.2: default looks set through styling props or `css` move into the component's class.
+- 4.4: retire `Margins`, `Flex*` and `Scrollable` (BoxTransforms).
+
+**2. Render cost on `develop`.**
+- 5.1 and N.2: `Item` without registries or post-mount discovery.
+- 5.2, 5.3: container and media queries instead of measuring.
+- 5.4, 5.6: derived instead of mirrored state.
+
+**3. API hygiene, at any time.** Small mechanical PRs:
+- 1.x: `className` merged;
+- 2.x: props forwarded;
+- 3.x: one polymorphism rule;
+- 7.x: target names next to the old ones, then a codemod;
+- 8.x: small bugs.
+
+**4. Breaking, for 9.0.0.**
+- Remove the deprecated names (7.x).
+- Retire BoxTransforms consumers (4.4) and unify polymorphism (3.x).
+- Remove the `states.scss` class selectors (6.1) if they were only deprecated earlier.
+
 ## Summary
 
 | # | Category | Findings | Non-breaking | Breaking / needs deprecation |
@@ -43,7 +119,7 @@ Headline numbers:
 | 1.5 | `NavBarItem` | `NavBar/NavBarItem.tsx` | `patchChildren` returns `{ className: append(…,'rcx-navbar-item'), ...props }`, so a `className` in props replaces the appended class on the child. | Merge `props.className` into the appended class. | none | no |
 | 1.6 | `InputBox` and all inputs (`TextInput`, `PasswordInput`, …) | `InputBox/InputBox.tsx` | With an addon, consumer `className` lands on **both** the wrapper `<label>` and the inner `<input>`; without an addon only on the input. | Choose one target (wrapper when present) and document it. | low: 1 site passes `className` (`CloseChatModal.tsx`, `'active'`, no addon) | no |
 | 1.7 | `PositionAnimated` (→ `Position`) | `PositionAnimated/Position.tsx` | `className: _className` discarded although typed via `BoxProps`. | Forward to the cloned child. | none | no |
-| 1.8 | `Bubble`, `MessageReactionCounter`, `StatusBullet` icons, `MessageStatusPrivateIndicator` | `Bubble/Bubble.tsx`, `Message/MessageReactions/MessageReactionCounter.tsx`, `StatusBullet/icons/*.tsx`, `Message/MessageStatusIndicator/MessageStatusPrivateIndicator.tsx` | Class strings built without filtering emit `undefined`/`false` tokens (`[…].join(' ')`, `` `${className}` ``). `PrivateIndicator` has a stray backtick (`'…__item `rcx-…__item--private'`), so the `--private` token is malformed (no SCSS rule targets it either). | Use `cx`/`filter(Boolean)`; fix the literal. | none | partly (`Bubble` filters in pilot; others unchanged) |
+| 1.8 | `Bubble`, `MessageReactionCounter`, `StatusBullet` icons, `MessageStatusPrivateIndicator` | `Bubble/Bubble.tsx`, `Message/MessageReactions/MessageReactionCounter.tsx`, `StatusBullet/icons/*.tsx`, `Message/MessageStatusIndicator/MessageStatusPrivateIndicator.tsx` | Class strings built without filtering emit `undefined`/`false` tokens (`[…].join(' ')`, `` `${className}` ``). `PrivateIndicator` has a stray backtick (`'…__item `rcx-…__item--private'`), so the `--private` token is malformed (no SCSS rule targets it either). | Use `cx`/`filter(Boolean)`; fix the literal. | none | partly: `Bubble` filters in the pilot; the backtick and the `MessageReactionCounter` class are fixed by the first two pilot commits, ready to extract |
 
 ## 2. Props dropped, or declared props without effect
 
@@ -74,7 +150,7 @@ Headline numbers:
 |---|---|---|---|---|---|---|
 | 4.2 | ~30 components set their **default** look through styling props or inline `css`: `Contextualbar` (13 styling props), `ContextualbarContent/Footer/Section/Title/Skeleton`, `ContextualbarHeader` (+ inline `css` for `gap`), `ContextualbarAction` (`flexShrink`), `ContextualbarIcon` (`paddingInline`); `ModalContent` (`marginInline`), `ModalIcon`, `ModalFooter` (`justifyContent`), `ModalThumb` (wrapper `Box`); `CardBody`, `CardGrid`; `AudioPlayer`, `AudioPlayerControls`; `SelectTrigger`, `SelectFocus`, `SelectAria`, `SelectLegacy`, `MultiSelect`, `PaginatedMultiSelect` (`display`/`margin`/`fontScale`/`color` + `FlexItem`/`Margins`/`FlexContainer`); `Options`/`OptionContainer` (`Tile` padding props, `maxHeight`); `DropdownDesktop`/`DropdownMobile`; `TableSelection`, `TableSelectionButton`; `Tile` (default `padding`); `Label` required mark, `LabelInfo`; `Button`/`BubbleItem` icon margins; `MessageMetricsFollowing` (`position`/`overflow`); `SidepanelHeader` divider margins; `TableCell` placeholder `hr` | `Contextualbar/*`, `Modal/*`, `Card/*`, `AudioPlayer/*`, `Select/*`, `MultiSelect/*`, `PaginatedSelect/*`, `Options/*`, `Dropdown/*`, `Table/**`, `Tile/Tile.tsx`, `Label/*`, `Button/Button.tsx`, `Bubble/BubbleItem.tsx`, `Message/MessageMetrics/*`, `Sidepanel/SidepanelHeader.tsx` | Every instance generates css-in-js rules at runtime for constant styles; the migration would have to translate each one by hand. | Move the constant styles into the component's SCSS class; keep accepting the same props for overrides. | none | yes (as part of the migration: pilot moves them into `styled` frames) |
 | 4.3 | `AnimatedVisibility` (keyframes), `Scrollable`, `Margins` (`useStyle`), `Slider` (`Slider`, `SliderHead`, `SliderThumb`, `SliderTrack`), `ToastBar` (keyframes per render), `Throbber` (per-circle `css`), `ContextualbarHeader` | listed files | Runtime `css`/`keyframes` for styles that are static apart from one or two values. | Static SCSS plus CSS custom properties for the dynamic values (`--throbber-delay`, `--toast-time`, slider fill %). | none | partly (some converted; pilot `StatesIcon` adds a new runtime `css`) |
-| 4.1 | ~97 public components typed with `BoxProps` (list in Summary) | `Box/Box.tsx` and dependents | Accepting every styling prop (and `is`) on every part keeps `Box` and its runtime as public API. | Decide the policy now (e.g. styling props only on layout primitives, `className`/`style` elsewhere), announce it, and remove in 9.0.0. | **breaking**: e.g. `Field*` 125 sites pass styling props, `Icon` 93, `Modal*` 29, `Contextualbar*` 26 | no (API kept; pilot maps `BoxProps` through `useTamaguiBoxProps`) |
+| 4.1 | ~97 public components typed with `BoxProps` (list in Summary) | `Box/Box.tsx` and dependents | Accepting every styling prop (and `is`) on every part keeps `Box` and its runtime as public API. | Decide the policy now (e.g. styling props only on layout primitives, `className`/`style` elsewhere), announce it, and remove in 9.0.0. | **breaking**: e.g. `Field*` 125 sites pass styling props, `Icon` 93, `Modal*` 29, `Contextualbar*` 26 | **done** on `develop` by #43100; the pilot no longer maps `BoxProps` |
 | 4.4 | `FlexContainer`, `FlexItem`, `Margins`, `Scrollable`, `AnimatedVisibility` (and `PositionAnimated` through it) | `Flex/*`, `Margins/Margins.tsx`, `Scrollable/Scrollable.tsx`, `AnimatedVisibility/AnimatedVisibility.tsx` | Inject props into the nearest descendant `Box` through the `BoxTransforms` context: they only work on `Box` children and keep the transform pipeline in every `Box` render. | `Scrollable`/`AnimatedVisibility`: render their own element or add a class to the child. `Flex*`/`Margins`: deprecate in favor of `gap`/explicit props. | **breaking** via deprecation: `Margins` 96 sites, `FlexContainer`/`FlexItem` 27, `Scrollable` 8 | no (kept, `takesBoxTransforms`) |
 
 ## 5. State discovered after mount
@@ -92,7 +168,7 @@ Headline numbers:
 
 | ID | Component(s) | File | What's wrong | Proposed fix on develop | Consumer impact | Pilot |
 |---|---|---|---|---|---|---|
-| 6.1 | Every component using `styles/mixins/states.scss` (`on-hover`, `on-active`, `on-focus`, `on-disabled`): Button, inputs, links, SplitButton, Tabs, Sidebar items, Accordion (15 SCSS files) | `styles/mixins/states.scss` | The mixins also match `.hover`, `.is-hovered`, `.active`, `.is-active`, `.focus`, `.is-focused`, `.disabled`, `.is-disabled`, so any consumer class with those words forces visual state. | Drop the class selectors (keep pseudo-classes); use a Storybook pseudo-states addon for docs; where a component needs forced state, use a prop + `data-*`. | **breaking** for 1 site: `CloseChatModal.tsx` passes `className='active'` to `TextInput` | no (pilot keeps the contract, 56 references) |
+| 6.1 | Every component using `styles/mixins/states.scss` (`on-hover`, `on-active`, `on-focus`, `on-disabled`): Button, inputs, links, SplitButton, Tabs, Sidebar items, Accordion (15 SCSS files) | `styles/mixins/states.scss` | The mixins also match `.hover`, `.is-hovered`, `.active`, `.is-active`, `.focus`, `.is-focused`, `.disabled`, `.is-disabled`, so any consumer class with those words forces visual state. | Drop the class selectors (keep pseudo-classes); use a Storybook pseudo-states addon for docs; where a component needs forced state, use a prop + `data-*`. | **breaking** for 2 sites: `CloseChatModal.tsx` passes `className='active'` to `TextInput`; `AssetSettingInput` uses `is-disabled` on a borrowed `rcx-button` (the pilot replaces it with a `Button`). No app selector or e2e test targets these classes | no (pilot keeps the contract through `forceStyle`) |
 | 6.2 | `SelectTrigger` (via `Select`), `SelectLegacy`, `MultiSelect` | `Select/SelectTrigger.tsx`, `Select/SelectLegacy.tsx`, `MultiSelect/MultiSelect.tsx` | `SelectTrigger` writes `focus` into `className`. `SelectLegacy`/`MultiSelect` call `classList.add/remove('focus-visible')` imperatively, and `SelectLegacy` reads that class back as its open/closed toggle. | Use `:focus-visible` / `data-focus-visible`; keep open state in React. | none | no |
 | 6.3 | `InputBox` (all inputs) | `InputBox/InputBox.tsx` | `parentElement.classList.toggle('invalid', …)` in a layout effect and in `onChange`: DOM mutation outside React. | `:has(:invalid)` on the wrapper, or `aria-invalid` from `error`. | none | partly (pilot uses state: no DOM mutation, but an extra render) |
 | 6.4 | `AutoComplete`, `MultiSelect`, `PaginatedMultiSelect`, `SelectLegacy`, `PaginatedSelect` roots; `SelectTrigger` | listed files | Bare `invalid`/`disabled` words in `className` drive the SCSS (`&.invalid`, `&.disabled`), so they collide with consumer class names. | Use BEM modifiers (`rcx-select--invalid`) or attribute selectors (`[aria-invalid]`, `[aria-disabled]`). | none | no |
@@ -132,7 +208,7 @@ Headline numbers:
 
 ## Suggested PR grouping (develop, one concern each)
 
-Non-breaking first. Each item is one small PR; bug fixes that ship in a release get `fix:` + changeset.
+Non-breaking first. Each item is one small PR; bug fixes that ship in a release get `fix:` + changeset. Take them in the order of [Status and priorities](#status-and-priorities-2026-10-25), not in the numbering below.
 
 1. **fix(fuselage): merge consumer `className` instead of replacing it** — 1.1, 1.2, 1.4, 1.5, 1.7, 1.8 (+ the stray backtick). Mechanical; adds specs for "consumer class kept".
 2. **fix(fuselage): forward `className`/`style` from `Select` and `MessageBlock`** — 1.3, 1.9.
