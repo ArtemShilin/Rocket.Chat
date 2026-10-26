@@ -55,7 +55,7 @@
     const result = await api('jobs/' + id + '/result?offset=' + (append ? nextOffset : 0));
     if (id !== currentJob) return;
     sources(result.sources, result.meta, append);
-    if (result.answer && !append) answer(result.answer, result.answerSources, result.meta?.summary);
+    if (result.answer && !append) { answer(result.answer, result.answerSources, result.meta?.summary); if (result.extractive) el('answer-title').textContent = 'Фрагменты переписки'; }
     nextOffset = result.nextOffset; el('more').hidden = nextOffset == null;
   }
   async function monitor(id) {

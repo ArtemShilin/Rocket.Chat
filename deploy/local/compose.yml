@@ -107,8 +107,8 @@ services:
       OVERWRITE_SETTING_Accounts_RegistrationForm: Disabled
       OVERWRITE_SETTING_Accounts_AllowFeaturePreview: 'true'
       OVERWRITE_SETTING_Accounts_TwoFactorAuthentication_By_Email_Enabled: 'false'
-      OVERWRITE_SETTING_Layout_Sidenav_Footer: '<a href="/local-ai">✦ AI-поиск</a> · <a href="/my-devices" title="Устройства, IP и города">Мои устройства</a>'
-      OVERWRITE_SETTING_Layout_Sidenav_Footer_Dark: '<a href="/local-ai">✦ AI-поиск</a> · <a href="/my-devices" title="Устройства, IP и города">Мои устройства</a>'
+      OVERWRITE_SETTING_Layout_Sidenav_Footer: '<a href="/local-ai">✦ AI-поиск</a> · <a href="/my-devices" title="Устройства, IP и города">Мои устройства</a><br><a href="/workspace-devices">Админ: устройства</a>'
+      OVERWRITE_SETTING_Layout_Sidenav_Footer_Dark: '<a href="/local-ai">✦ AI-поиск</a> · <a href="/my-devices" title="Устройства, IP и города">Мои устройства</a><br><a href="/workspace-devices">Админ: устройства</a>'
     healthcheck:
       test:
         - CMD

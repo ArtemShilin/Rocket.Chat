@@ -37,9 +37,19 @@ async function reduceAll(input, models, query, mode, progress = () => {}) {
   async function reduce(items) {
     const allowed = new Set(items.flatMap(item => item.refs));
     if (!allowed.size) return { text: 'Недостаточно подтверждённых данных.', refs: [] };
-    const content = await models.reduce(query, items, mode);
-    progress({ modelCalls: ++calls });
-    return parseNote(content, allowed);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const question = attempt ? query + '\nОбязательно включи ссылки в текст ответа. Допустимые ссылки: ' + [...allowed].map(n => `[${n}]`).join(' ') : query;
+      const content = await models.reduce(question, items, mode);
+      progress({ modelCalls: ++calls });
+      try {
+        const note = parseNote(content, allowed);
+        if (note.refs.length) return note;
+      } catch (error) { if (error.status !== 502) throw error; }
+    }
+    // Never attach citations to unverified model prose. Fall back to literal input excerpts.
+    const budget = Math.max(16, Math.floor(1600 / items.length));
+    const excerpts = items.map(item => [...chunks(item.text, budget)][0] + ' ' + item.refs.map(n => `[${n}]`).join(' '));
+    return { text: 'ИИ не подтвердил сводку ссылками. Фрагменты переписки:\n' + excerpts.join('\n'), refs: [...allowed], extractive: true };
   }
   async function carry(note, level = 0) {
     levels[level] ||= [];

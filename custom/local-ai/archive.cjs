@@ -50,7 +50,7 @@ function createArchive({ reader, models, cache, references, hits, job, progress,
     const sources = ordered.length ? await reader.get(ordered.map(record => record.messageId), ordered) : [];
     const numbers = new Map(ordered.map((record, index) => [record.n, index + 1]));
     const answer = note.text.replace(/\[(\d+)\]/g, (_, n) => numbers.has(Number(n)) ? `[${numbers.get(Number(n))}]` : '');
-    return { answer, answerSources: sources, sources };
+    return { answer, answerSources: sources, sources, extractive: note.extractive === true };
   }
 
   async function summary(roomId) {

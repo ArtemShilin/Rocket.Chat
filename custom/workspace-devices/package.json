@@ -1,0 +1,1 @@
+{"name":"rocketchat-workspace-devices","version":"1.0.0","private":true,"license":"MIT","scripts":{"test":"node --test test/*.test.cjs"}}

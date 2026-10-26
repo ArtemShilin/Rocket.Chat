@@ -168,3 +168,15 @@ fixture перед проверкой.
 - [Rocket.Chat 8.9.0 LTS](https://github.com/RocketChat/Rocket.Chat/releases/tag/8.9.0)
 - [Colima](https://github.com/abiosoft/colima)
 - [Виртуализация VZ в Lima](https://lima-vm.io/docs/config/vmtype/vz/)
+
+## Административное управление устройствами
+
+Откройте **Админ: устройства** внизу боковой панели или
+http://localhost:3000/workspace-devices. Требуется роль администратора и повторное
+подтверждение пароля. Панель показывает все активные интерактивные входы,
+позволяет найти пользователя и завершить конкретный вход с записью в журнал.
+Остальные входы пользователя сохраняются.
+
+Сборка: `DOCKER_BUILDKIT=0 ./deploy/local/manage.sh build-workspace`.
+Подробности: [модуль устройств](../../custom/workspace-devices/README.md),
+[обзор следующих возможностей](../../custom/PREMIUM_REVIEW.md).

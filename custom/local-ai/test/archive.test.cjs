@@ -61,3 +61,7 @@ test('source-only model output is rejected and inline citations work without a r
   assert.throws(() => parseNote('{"answer":"[1][2]","citations":[1,2]}', new Set([1,2])), { status: 502 });
   assert.deepEqual(parseNote('{"answer":"В 18:30 [1]"}', new Set([1])), { text: 'В 18:30 [1]', refs: [1] });
 });
+test('uncited model prose is retried then replaced by literal source excerpts', async () => {
+  let calls = 0; const note = await reduceAll([{ text: '[7] Подтверждённый запуск в 18:30', refs: [7] }], { reduce: async () => { calls++; return '{"answer":"Неподтверждённое утверждение"}'; } }, 'Когда?', 'summary');
+  assert.equal(calls, 2); assert.equal(note.extractive, true); assert.match(note.text, /18:30/); assert.ok(!note.text.includes('Неподтверждённое утверждение')); assert.deepEqual(note.refs, [7]);
+});
