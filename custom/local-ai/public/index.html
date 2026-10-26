@@ -7,14 +7,14 @@
   <div class="heading"><div><p class="eyebrow">ПОИСК ПО ВАШЕЙ ПЕРЕПИСКЕ</p><h1>Найдите ответ в разговорах</h1>
   <p class="lead">Задайте вопрос своими словами. ИИ найдёт сообщения и соберёт ответ с источниками.</p></div><span class="badge">Обработка на этом сервере</span></div>
   <form id="form">
-    <label for="query">Ваш вопрос</label><textarea id="query" rows="2" minlength="2" maxlength="500" placeholder="Например: когда запланирован запуск проекта?" required></textarea>
+    <label for="query">Ваш вопрос</label><textarea id="query" rows="2" minlength="2" placeholder="Например: когда запланирован запуск проекта?" required></textarea>
     <div class="controls"><div class="room"><label for="room">Где искать</label><select id="room"><option value="">Во всех моих каналах и чатах</option></select></div>
       <button id="search" type="submit">Найти ответ</button><button id="summary" type="button">Сводка канала</button></div>
     <label class="checkbox"><input id="generate" type="checkbox" checked> Сформировать ответ по найденным сообщениям</label>
-    <p class="hint">Поиск по последним 100 сообщениям в канале: до 50 каналов и 600 сообщений за запрос. Сводка — по 6 последним текстовым сообщениям. Зашифрованная переписка не обрабатывается.</p>
+    <p class="hint">Поиск и сводка по всей доступной истории на момент запуска. Большие архивы обрабатываются порциями. Зашифрованная переписка не обрабатывается.</p>
   </form>
-  <p id="status" role="status" aria-live="polite">Проверяем готовность локального ИИ…</p>
+  <button id="cancel" type="button" hidden>Отменить обработку</button><p id="status" role="status" aria-live="polite">Проверяем готовность локального ИИ…</p>
   <section id="answer-section" class="answer" hidden aria-label="Ответ ИИ"><div class="section-title"><h2 id="answer-title">Ответ по переписке</h2><span class="tag">ИИ</span></div><div id="answer"></div><p class="hint">Проверьте важные детали по источникам: локальная модель может ошибаться.</p></section>
-  <section id="sources-section" hidden aria-label="Источники"><div class="section-title"><h2>Источники</h2><span id="coverage"></span></div><div id="sources"></div></section>
+  <section id="sources-section" hidden aria-label="Источники"><div class="section-title"><h2>Источники</h2><span id="coverage"></span></div><div id="sources"></div><button id="more" type="button" hidden>Показать ещё</button></section>
   <aside>В поиск попадают сообщения из каналов и чатов, в которых вы участвуете и которые доступны вашей учётной записи. Ссылки ведут к исходной переписке. На этом компьютере формирование ответа может занять до нескольких минут.</aside>
 </main></body></html>

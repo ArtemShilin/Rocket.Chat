@@ -57,7 +57,6 @@ async function main() {
     assert.equal((await ai('status', {})).status, 401);
     assert.equal((await ai('status', { ...alice, 'X-User-Id': fixture.users[1].id })).status, 401);
     assert.equal((await ai('search', alice, { query: 'test', userId: fixture.users[1].id })).status, 400);
-    assert.equal((await ai('search', alice, { query: 'x'.repeat(501) })).status, 400);
     assert.equal((await ai('search', alice, { query: 'код', roomId: data.privateRoomId })).status, 403);
     assert.equal((await ai('answer', alice, { query: 'Код?', messageIds: [data.privateMessageId] })).status, 403);
     assert.equal((await ai('summary', alice, { roomId: data.privateRoomId })).status, 403);

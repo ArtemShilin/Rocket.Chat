@@ -9,12 +9,12 @@ function validateRequest(body, action) {
   const allowed = action === 'answer' ? ['query', 'messageIds'] : action === 'summary' ? ['roomId'] : ['query', 'roomId'];
   if (Object.keys(body).some(key => !allowed.includes(key))) throw new HttpError(400, 'Неизвестный параметр запроса.');
   const id = value => typeof value === 'string' && /^[\w-]{1,200}$/.test(value);
-  if (action !== 'summary' && (typeof body.query !== 'string' || body.query.trim().length < 2 || body.query.length > 500)) {
-    throw new HttpError(400, 'Введите вопрос длиной от 2 до 500 символов.');
+  if (action !== 'summary' && (typeof body.query !== 'string' || body.query.trim().length < 2)) {
+    throw new HttpError(400, 'Введите вопрос длиной от 2 символов.');
   }
   if (body.roomId !== undefined && !id(body.roomId)) throw new HttpError(400, 'Некорректный канал.');
   if (action === 'summary' && !id(body.roomId)) throw new HttpError(400, 'Выберите канал для сводки.');
-  if (action === 'answer' && (!Array.isArray(body.messageIds) || !body.messageIds.length || body.messageIds.length > 6 || !body.messageIds.every(id))) {
+  if (action === 'answer' && (!Array.isArray(body.messageIds) || !body.messageIds.length || !body.messageIds.every(id))) {
     throw new HttpError(400, 'Некорректные источники ответа.');
   }
   return body;
@@ -22,7 +22,7 @@ function validateRequest(body, action) {
 
 function visibleText(message) {
   if (!message || message.t || typeof message.msg !== 'string' || !message.msg.trim()) return null;
-  return message.msg.trim().slice(0, 1200);
+  return message.msg.trim();
 }
 
 const textHash = text => crypto.createHash('sha256').update(text).digest('hex');
@@ -47,7 +47,7 @@ function rank(query, queryVector, messages) {
     const keyword = keywordScore(query, message.text);
     return { ...message, score: 0.75 * semantic + 0.25 * keyword, semantic, keyword };
   }).filter(message => message.semantic >= 0.35 || message.keyword >= 0.5)
-    .sort((a, b) => b.score - a.score).slice(0, 6);
+    .sort((a, b) => b.score - a.score);
 }
 
 function source(message, room) {

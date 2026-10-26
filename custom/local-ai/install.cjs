@@ -5,8 +5,14 @@ if (!program.load.some(item => item.path === 'account-devices.js')) throw new Er
 if (program.load.some(item => item.path === 'local-ai.js')) throw new Error('Local AI already installed');
 fs.writeFileSync('/app/bundle/programs/server/local-ai.js', `
 Package.meteor.Meteor.startup(() => {
+  const localRequire = Package.modules.meteorInstall({});
+  const authorization = localRequire('/server/lib/authorization/canAccessRoom.ts');
+  const core = localRequire('@rocket.chat/models');
   Npm.require('node:module').createRequire('/app/local-ai/package.json')('./server.cjs')({
     Meteor: Package.meteor.Meteor,
+    Accounts: Package['accounts-base'].Accounts,
+    core: { ...core, canAccessRoomIdAsync: (...args) => authorization.canAccessRoomIdAsync(...args) },
+    WebAppInternals: Package.webapp.WebAppInternals,
     WebApp: Package.webapp.WebApp,
     MongoInternals: Package.mongo.MongoInternals,
   });

@@ -3,11 +3,12 @@ const assert = require('node:assert/strict');
 const { validateRequest, visibleText, cosine, rank, groundedAnswer } = require('../domain.cjs');
 
 test('invalid queries, impersonation parameters and untrusted message bodies are rejected', () => {
-  for (const body of [{ query: 'a' }, { query: 'x'.repeat(501) }, { query: 'release', userId: 'other' }, { query: 'ok', roomId: { $ne: null } }]) {
+  for (const body of [{ query: 'a' }, { query: 'release', userId: 'other' }, { query: 'ok', roomId: { $ne: null } }]) {
     assert.throws(() => validateRequest(body, 'search'), { status: 400 });
   }
   assert.throws(() => validateRequest({ query: 'ok', messageIds: [], messages: [{ msg: 'invented' }] }, 'answer'), { status: 400 });
-  assert.throws(() => validateRequest({ query: 'ok', messageIds: Array(7).fill('message') }, 'answer'), { status: 400 });
+  assert.doesNotThrow(() => validateRequest({ query: 'x'.repeat(5000), messageIds: Array(70).fill('message') }, 'answer'));
+  assert.equal(visibleText({ msg: 'x'.repeat(5000) }).length, 5000);
 });
 
 test('encrypted, deleted and system messages never become source text', () => {

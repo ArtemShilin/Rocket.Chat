@@ -1,6 +1,9 @@
 (() => {
   const el = id => document.getElementById(id);
-  let busy = false; let ready = false;
+  let busy = false; let ready = false; let currentJob = null; let nextOffset = null; let generation = 0;
+  const savedKey = () => "local-ai-job:" + localStorage.getItem("Meteor.userId");
+  const handoff = new URLSearchParams(location.hash.slice(1)).get("q");
+  if (handoff) { el("query").value = handoff; history.replaceState(null, "", location.pathname); }
   function node(tag, text, className) {
     const item = document.createElement(tag);
     if (text != null) item.textContent = text;
@@ -24,18 +27,19 @@
     if (!response.ok) throw new Error(response.status === 401 ? 'Вход завершён. Вернитесь в Rocket.Chat и авторизуйтесь снова.' : result.error);
     return result;
   }
-  function sources(items, meta) {
-    el('sources').replaceChildren(...items.map((source, index) => {
+  function sources(items, meta, append = false) {
+    const cards = items.map((source, index) => {
       const card = node('article', null, 'source');
       const head = node('div', null, 'source-head');
-      const link = node('a', `[${index + 1}] ${source.roomName} ↗`);
+      const link = node('a', `${source.roomName} ↗`);
       link.href = source.url; link.target = '_blank'; link.rel = 'noopener noreferrer';
       head.append(link, node('span', source.date ? new Date(source.date).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short' }) : ''));
       card.append(head, node('p', source.text, 'source-text'), node('div', source.author, 'source-meta'));
       return card;
-    }));
-    el('coverage').textContent = meta ? `Проверено ${meta.scanned} сообщений · ${meta.rooms} каналов${meta.limited ? ' · достигнут лимит, уточните канал' : ''}` : `${items.length} сообщений`;
-    el('sources-section').hidden = !items.length;
+    });
+    if (append) el('sources').append(...cards); else el('sources').replaceChildren(...cards);
+    el('coverage').textContent = meta ? `Проверено ${meta.scanned} сообщений · ${meta.rooms || 1} каналов · найдено ${meta.total ?? items.length}` : `${items.length} сообщений`;
+    el('sources-section').hidden = !el('sources').childElementCount;
   }
   function answer(text, items, summary = false) {
     el('answer-title').textContent = summary ? 'Краткая сводка канала' : 'Ответ по переписке';
@@ -46,29 +50,41 @@
     });
     el('answer').replaceChildren(...parts); el('answer-section').hidden = false;
   }
+  async function loadResult(append = false) {
+    const id = currentJob;
+    const result = await api('jobs/' + id + '/result?offset=' + (append ? nextOffset : 0));
+    if (id !== currentJob) return;
+    sources(result.sources, result.meta, append);
+    if (result.answer && !append) answer(result.answer, result.answerSources, result.meta?.summary);
+    nextOffset = result.nextOffset; el('more').hidden = nextOffset == null;
+  }
+  async function monitor(id) {
+    const epoch = ++generation; busy = true; currentJob = id; controls(); el('cancel').hidden = false;
+    try {
+      while (epoch === generation) {
+        const { job } = await api('jobs/' + id);
+        if (epoch !== generation) return;
+        if (job.status === 'done') { await loadResult(); sessionStorage.removeItem(savedKey()); status('Готово. Все найденные сообщения доступны на следующих страницах.'); return; }
+        if (['cancelled', 'failed'].includes(job.status)) throw new Error(job.error || 'Задача отменена.');
+        const p = job.progress;
+        const phase = { index: 'Поиск по всей истории', summary: 'Сводка всей истории', answer: 'Формирование ответа', verify: 'Проверка источников', question: 'Обработка вопроса' }[p.phase] || 'Подготовка';
+        status(job.status === 'queued' ? 'В очереди: ' + job.position : `${phase} · сообщений: ${p.scanned || 0} · каналов: ${p.roomsDone || 0}/${p.rooms || 1} · обращений к модели: ${p.modelCalls || 0}`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    } catch (error) {
+      if (epoch === generation) { status(error.message, true); sessionStorage.removeItem(savedKey()); }
+    } finally { if (epoch === generation) { busy = false; controls(); el('cancel').hidden = true; } }
+  }
   async function run(summary = false) {
     if (busy) return;
-    busy = true; controls(); el('answer-section').hidden = true; el('sources-section').hidden = true;
-    status(summary ? 'Читаем доступные сообщения и готовим сводку…' : 'Ищем подходящие сообщения по смыслу… Первый поиск может занять больше времени.');
+    busy = true; controls(); el('answer-section').hidden = true; el('sources-section').hidden = true; el('more').hidden = true;
     try {
-      if (summary) {
-        const result = await api('summary', { roomId: el('room').value });
-        sources(result.sources); answer(result.answer, result.sources, true);
-      } else {
-        const query = el('query').value.trim();
-        const roomId = el('room').value;
-        const result = await api('search', { query, ...(roomId ? { roomId } : {}) });
-        sources(result.sources, result.meta);
-        if (!result.sources.length) { status('Подходящих сообщений не найдено. Уточните вопрос или выберите другой канал.'); return; }
-        if (el('generate').checked) {
-          status('Сообщения найдены. Формируем ответ по источникам… На этом компьютере это может занять несколько минут.');
-          const generated = await api('answer', { query, messageIds: result.sources.map(item => item.id) });
-          sources(generated.sources, result.meta); answer(generated.answer, generated.sources);
-        }
-      }
-      status('Готово. Откройте источники, чтобы проверить детали.');
-    } catch (error) { status(error.message || 'Не удалось обработать запрос. Повторите попытку.', true); }
-    finally { busy = false; controls(); }
+      const roomId = el('room').value;
+      const body = summary ? { operation: 'summary', roomId } : { operation: 'search', query: el('query').value.trim(), ...(roomId ? { roomId } : {}), generate: el('generate').checked };
+      const { job } = await api('jobs', body);
+      sessionStorage.setItem(savedKey(), job.id);
+      await monitor(job.id);
+    } catch (error) { status(error.message, true); busy = false; controls(); }
   }
   async function initialize() {
     controls();
@@ -82,12 +98,17 @@
       status(ready ? 'Локальный ИИ готов. Выберите канал или задайте вопрос по всей доступной переписке.' : 'Модели ещё загружаются или сервис недоступен. Обновите страницу позже.', !ready);
     } catch (error) { status(error.message, true); }
     controls();
+    const saved = sessionStorage.getItem(savedKey());
+    if (ready && saved) monitor(saved);
   }
+  el('more').addEventListener('click', async () => { el('more').disabled = true; try { await loadResult(true); } catch (error) { status(error.message, true); } finally { el('more').disabled = false; } });
+  el('cancel').addEventListener('click', async () => { try { await api('jobs/' + currentJob + '/cancel', {}); } catch (error) { status(error.message, true); } });
   el('form').addEventListener('submit', event => { event.preventDefault(); run(); });
   el('summary').addEventListener('click', () => run(true));
   el('room').addEventListener('change', controls);
   window.addEventListener('storage', event => {
     if (['Meteor.loginToken', 'Meteor.userId'].includes(event.key)) {
+      generation++; currentJob = null; busy = false; el('cancel').hidden = true; el('more').hidden = true;
       ready = false; el('sources-section').hidden = true; el('answer-section').hidden = true; initialize();
     }
   });
