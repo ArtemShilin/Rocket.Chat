@@ -1,0 +1,103 @@
+name: rocketchat-local
+
+services:
+  mongodb:
+    image: ${MONGODB_IMAGE:?Set MONGODB_IMAGE in images.env}
+    command: [mongod, --replSet, rs0, --bind_ip_all]
+    restart: unless-stopped
+    volumes:
+      - mongodb:/data/db
+    healthcheck:
+      test: [CMD, mongosh, --quiet, --eval, 'quit(db.hello().isWritablePrimary ? 0 : 1)']
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 20s
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+
+  mongodb-init:
+    image: ${MONGODB_IMAGE:?Set MONGODB_IMAGE in images.env}
+    depends_on:
+      mongodb:
+        condition: service_started
+    restart: 'no'
+    entrypoint: [bash, -euc]
+    command:
+      - |
+        for attempt in {1..90}; do
+          if mongosh --host mongodb --quiet --eval 'quit(db.adminCommand({ping: 1}).ok ? 0 : 1)' >/dev/null 2>&1; then
+            exec mongosh --host mongodb --quiet --eval '
+              try { rs.status(); }
+              catch (error) {
+                if (error.code !== 94) throw error;
+                rs.initiate({_id: "rs0", members: [{_id: 0, host: "mongodb:27017"}]});
+              }
+            '
+          fi
+          sleep 2
+        done
+        echo 'MongoDB did not start within 180 seconds' >&2
+        exit 1
+    logging: *logging
+
+  nats:
+    image: ${NATS_IMAGE:?Set NATS_IMAGE in images.env}
+    command: [--http_port, '8222']
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD-SHELL, 'wget -q -O /dev/null http://127.0.0.1:8222/healthz']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    logging: *logging
+
+  rocketchat:
+    image: ${ROCKETCHAT_IMAGE:?Set ROCKETCHAT_IMAGE in images.env}
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      mongodb-init:
+        condition: service_completed_successfully
+      nats:
+        condition: service_healthy
+    ports:
+      - '127.0.0.1:3000:3000'
+    environment:
+      ROOT_URL: http://localhost:3000
+      PORT: '3000'
+      MONGO_URL: mongodb://mongodb:27017/rocketchat?replicaSet=rs0
+      TRANSPORTER: monolith+nats://nats:4222
+      DEPLOY_METHOD: docker
+      DEPLOY_PLATFORM: compose
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_NAME: Local Administrator
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@rocketchat.test}
+      ADMIN_EMAIL_VERIFIED: 'true'
+      ADMIN_PASS: ${ADMIN_PASS:?Run manage.sh start to generate a local password}
+      OVERWRITE_SETTING_Show_Setup_Wizard: completed
+      OVERWRITE_SETTING_Register_Server: 'false'
+      OVERWRITE_SETTING_Statistics_reporting: 'false'
+      OVERWRITE_SETTING_Site_Name: Rocket.Chat Local
+      OVERWRITE_SETTING_Language: en
+      OVERWRITE_SETTING_FileUpload_Storage_Type: GridFS
+      OVERWRITE_SETTING_Accounts_RegistrationForm: Disabled
+      OVERWRITE_SETTING_Accounts_TwoFactorAuthentication_By_Email_Enabled: 'false'
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/info').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 120s
+    logging: *logging
+
+volumes:
+  mongodb:
