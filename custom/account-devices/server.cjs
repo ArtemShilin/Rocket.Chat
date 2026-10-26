@@ -39,6 +39,9 @@ module.exports = function registerAccountDevices({ Meteor, Accounts, WebApp, Mon
 
   const recentlyObserved = new Map();
   async function observeAuthenticatedRequest(req) {
+    // In-process services call the standard REST API over loopback on the user's behalf.
+    // Keep their internal address from replacing the actual browser's device metadata.
+    if (['127.0.0.1', '::1'].includes(normalizeIP(req.socket.remoteAddress))) return;
     const uid = req.headers['x-user-id'];
     const raw = req.headers['x-auth-token'];
     if (typeof uid !== 'string' || typeof raw !== 'string' || uid.length > 200 || raw.length > 512) return;
@@ -138,6 +141,7 @@ module.exports = function registerAccountDevices({ Meteor, Accounts, WebApp, Mon
   };
   // Rocket.Chat installs an /api catch-all before application startup. Our narrowly
   // scoped handler must run ahead of it; all unrelated requests continue unchanged.
+  middleware.isAccountDevices = true;
   WebApp.rawConnectHandlers.use(middleware);
   const stack = WebApp.rawConnectHandlers.router.stack;
   const index = stack.findIndex(layer => layer.handle === middleware);
