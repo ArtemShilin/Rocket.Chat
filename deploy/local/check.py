@@ -32,7 +32,7 @@ class Client:
                 data = response.read()
         except urllib.error.HTTPError as error:
             detail = json.loads(error.read()).get('error', str(error.code))
-            raise RuntimeError(f'{request.method} {path}: {detail}') from None
+            raise RuntimeError(f'{request.get_method()} {path}: {detail}') from None
         if raw:
             return data
         result = json.loads(data)

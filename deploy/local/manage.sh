@@ -46,6 +46,7 @@ case "${1:-help}" in
     fi
     node "$HERE/browser-check.cjs"
     ;;
+  build-devices) "$HERE/../../custom/account-devices/build.sh" ;;
   credentials) cat "$HERE/.env" ;;
   backup)
     initialize
@@ -57,5 +58,5 @@ case "${1:-help}" in
     printf '%s\n' "$archive"
     ;;
   compose) shift; compose "$@" ;;
-  *) printf 'Usage: %s {start|stop|stop-vm|status|logs [service]|check|browser-check|credentials|backup|compose ...}\n' "$0" ;;
+  *) printf 'Usage: %s {start|stop|stop-vm|status|logs [service]|check|browser-check|build-devices|credentials|backup|compose ...}\n' "$0" ;;
 esac
