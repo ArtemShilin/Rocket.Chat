@@ -49,6 +49,7 @@ case "${1:-help}" in
   build-devices) "$HERE/../../custom/account-devices/build.sh" ;;
   build-ai) "$HERE/../../custom/local-ai/build.sh" ;;
   build-workspace) "$HERE/../../custom/workspace-devices/build.sh" ;;
+  build-canned) "$HERE/../../custom/canned-responses/build.sh" ;;
   prepare-ai) "$HERE/../../custom/local-ai/prepare.sh" ;;
   credentials) cat "$HERE/.env" ;;
   backup)
@@ -61,5 +62,5 @@ case "${1:-help}" in
     printf '%s\n' "$archive"
     ;;
   compose) shift; compose "$@" ;;
-  *) printf 'Usage: %s {start|stop|stop-vm|status|logs [service]|check|browser-check|build-devices|build-ai|build-workspace|prepare-ai|credentials|backup|compose ...}\n' "$0" ;;
+  *) printf 'Usage: %s {start|stop|stop-vm|status|logs [service]|check|browser-check|build-devices|build-ai|build-workspace|build-canned|prepare-ai|credentials|backup|compose ...}\n' "$0" ;;
 esac

@@ -18,7 +18,7 @@ async function login(browser, username, password) {
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await page.locator('input[name="usernameOrEmail"]').fill(username);
   await page.locator('input[name="password"]').fill(password);
-  await page.locator('form button[type="submit"]').click();
+  await page.locator('form').filter({ has: page.locator('input[name="usernameOrEmail"]') }).locator('button[type="submit"]').click();
   await page.locator('#main-content').waitFor({ state: 'visible' });
   return page;
 }

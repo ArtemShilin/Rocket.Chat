@@ -46,6 +46,13 @@ const api = (route,auth,body) => request('workspace-devices/'+route,auth,body);
   await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(local,'.state/workspace-devices-mobile.png'),fullPage:true});
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   console.log('PASS: browser reauthentication, iPhone/IP/location, targeted remote logout including live DDP, other session preserved, audit and mobile layout');
+ } catch(error) {
+  if(browser)for(const [index,context] of browser.contexts().entries()){
+   const page=context.pages()[0];if(!page)continue;
+   await page.screenshot({path:path.join(local,`.state/workspace-regression-failure-${index}.png`),fullPage:true}).catch(()=>{});
+   fs.writeFileSync(path.join(local,`.state/workspace-regression-failure-${index}.txt`),await page.locator('body').innerText().catch(()=>''),{mode:0o600});
+  }
+  throw error;
  } finally {
   if(browser)await browser.close();for(const a of [admin,adminUI,alice,phone].filter(Boolean))await request('logout',a,{}).catch(()=>{});
  }

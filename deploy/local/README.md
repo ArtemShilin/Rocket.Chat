@@ -56,7 +56,7 @@ cd /Users/zzz/Projects/Rocket.Chat
 
 - Colima: профиль `rocketchat`, VZ, x86_64, 3 vCPU, 6 ГБ RAM, диск данных до 30 ГБ.
 - Docker: контекст `colima-rocketchat`. Скрипт всегда указывает его явно.
-- Rocket.Chat: базовый официальный образ 8.9.0 с модулями «Мои устройства» и AI-поиска;
+- Rocket.Chat: базовый официальный образ 8.9.0 с модулями устройств, AI-поиска и шаблонов;
   MongoDB: 8.0; NATS: 2.11. Базовые образы зафиксированы digest в `images.env`.
   Локальный образ приложения закреплён ID через `ROCKETCHAT_IMAGE` в `.env`.
 - Единственный опубликованный порт: `127.0.0.1:3000`. MongoDB и NATS доступны
@@ -150,8 +150,10 @@ fixture перед проверкой.
 их через pull request в эту ветку. Основные файлы приложения сейчас не изменены.
 
 Стенд запускает **собственный образ поверх официального** с модулями из
-`custom/account-devices` и `custom/local-ai`. Для изменения модулей повторите сборку AI-образа и обновите
-`ROCKETCHAT_IMAGE` в `.env` на новый ID по инструкции модуля. Изменения исходников
+`custom/account-devices`, `custom/local-ai`, `custom/workspace-devices` и
+`custom/canned-responses`. При изменении шаблонов выполните `build-canned`;
+при изменении AI сначала `build-ai`, затем `build-workspace` и `build-canned`.
+Обновите `ROCKETCHAT_IMAGE` в `.env` на новый ID по инструкции модуля. Изменения исходников
 в fork автоматически в контейнер не попадают. Для изменения основного React/Meteor
 приложения потребуется полная сборка его исходников.
 
@@ -180,3 +182,13 @@ http://localhost:3000/workspace-devices. Требуется роль админ�
 Сборка: `DOCKER_BUILDKIT=0 ./deploy/local/manage.sh build-workspace`.
 Подробности: [модуль устройств](../../custom/workspace-devices/README.md),
 [обзор следующих возможностей](../../custom/PREMIUM_REVIEW.md).
+
+## Шаблоны ответов
+
+Личные и общие шаблоны доступны по ссылке **Шаблоны ответов** внизу боковой
+панели и по адресу http://localhost:3000/local-canned-responses. Кнопка
+**Шаблоны** у текстового редактора вставляет ответ в черновик. Общие шаблоны
+создаёт и изменяет администратор, личные — только владелец.
+
+Сборка: `DOCKER_BUILDKIT=0 ./deploy/local/manage.sh build-canned`.
+Итоговый образ включает устройства и AI. [Код и проверки](../../custom/canned-responses/README.md).
