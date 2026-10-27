@@ -28,7 +28,9 @@ const base = process.env.CANNED_TEST_BASE || 'http://localhost:3001';
     template = (await request('local-canned-responses/list?q=' + shortcut)).items[0]; assert.ok(template);
     console.log('PASS: template created through the real page');
     await page.goto(base + '/channel/' + fixture.channel_name);
-    const composer = page.locator('textarea.js-input-message'); await composer.waitFor();
+    const composer = page.locator('textarea.js-input-message');
+    try { await composer.waitFor({ timeout: 15000 }); }
+    catch { await page.reload({ waitUntil: 'domcontentloaded' }); await composer.waitFor(); }
     console.log('PASS: real Rocket.Chat composer loaded');
     await composer.fill('До: ');
     await composer.evaluate(el => el.setSelectionRange(el.value.length, el.value.length));

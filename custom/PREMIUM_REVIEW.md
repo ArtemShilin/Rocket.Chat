@@ -23,3 +23,9 @@
 [Canned responses](https://docs.rocket.chat/docs/omnichannel-conversations),
 [Read receipts](https://docs.rocket.chat/docs/read-receipts),
 [Audit security logs](https://docs.rocket.chat/v1/docs/audit-workspace-security-logs).
+
+27.10.2026: по отдельному запросу пользователя разработан собственный
+[модуль встроенных опросов](native-polls/README.md). Он добавляется поверх
+шаблонов ответов; существующие приложения опросов сохраняются.
+Подтверждения просмотра сохранены отдельным тестовым прототипом в ветке
+`feature/message-view-confirmations` и на основном сервере не установлены.

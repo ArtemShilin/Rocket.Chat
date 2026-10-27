@@ -19,15 +19,22 @@ async function login(browser, username, password) {
   await page.locator('input[name="usernameOrEmail"]').fill(username);
   await page.locator('input[name="password"]').fill(password);
   await page.locator('form').filter({ has: page.locator('input[name="usernameOrEmail"]') }).locator('button[type="submit"]').click();
-  await page.locator('#main-content').waitFor({ state: 'visible' });
+  try {
+    await page.locator('#main-content').waitFor({ state: 'visible', timeout: 15000 });
+  } catch (error) {
+    if (!(await page.evaluate(() => Boolean(localStorage.getItem('Meteor.loginToken'))))) throw error;
+    console.log('INFO: login token received; reload after the application loading timeout');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('#main-content').waitFor({ state: 'visible' });
+  }
   return page;
 }
 
 async function sendAndReceive(sender, recipient, text) {
-  const composer = sender.locator('[name="msg"]');
+  const composer = sender.locator('textarea.js-input-message,[contenteditable="true"].js-input-message');
   await composer.fill(text);
   await composer.press('Enter');
-  await recipient.getByText(text, { exact: true }).waitFor({ state: 'visible', timeout: 60000 });
+  await recipient.locator('[data-mid]').getByText(text, { exact: true }).waitFor({ state: 'visible', timeout: 60000 });
 }
 
 async function main() {

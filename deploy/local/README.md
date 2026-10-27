@@ -151,8 +151,9 @@ fixture перед проверкой.
 
 Стенд запускает **собственный образ поверх официального** с модулями из
 `custom/account-devices`, `custom/local-ai`, `custom/workspace-devices` и
-`custom/canned-responses`. При изменении шаблонов выполните `build-canned`;
-при изменении AI сначала `build-ai`, затем `build-workspace` и `build-canned`.
+`custom/canned-responses` и `custom/native-polls`. При изменении опросов выполните
+`build-polls`; при изменении шаблонов — `build-canned`, затем `build-polls`;
+при изменении AI сначала `build-ai`, затем `build-workspace`, `build-canned` и `build-polls`.
 Обновите `ROCKETCHAT_IMAGE` в `.env` на новый ID по инструкции модуля. Изменения исходников
 в fork автоматически в контейнер не попадают. Для изменения основного React/Meteor
 приложения потребуется полная сборка его исходников.
@@ -192,3 +193,13 @@ http://localhost:3000/workspace-devices. Требуется роль админ�
 
 Сборка: `DOCKER_BUILDKIT=0 ./deploy/local/manage.sh build-canned`.
 Итоговый образ включает устройства и AI. [Код и проверки](../../custom/canned-responses/README.md).
+
+## Встроенные опросы
+
+Нажмите **◉ Опрос** в панели обычного или rich-text редактора. Вопрос и варианты
+появятся в карточке прямо в переписке. Доступны анонимные и открытые опросы,
+несколько ответов, срок окончания, изменение/отзыв голоса и досрочное завершение
+автором. Результаты могут быть видны сразу или после голосования.
+
+Сборка: `DOCKER_BUILDKIT=0 ./deploy/local/manage.sh build-polls`.
+[Устройство модуля и проверки](../../custom/native-polls/README.md).
